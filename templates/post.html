@@ -1,0 +1,10 @@
+<div class="container">
+	<div class="jumbotron">
+		<a href={{ "/blog/" ~ p.key().id() }}><h2 class="subject">{{p.subject}}</h2></a>
+		<span>{{p.created.strftime("%b %d, %Y")}}</span>
+		<hr>
+		<p>{{p.content | safe}}</p>
+		<a href={{ "/delete/" ~ p.key().id() }}>Delete</a>
+	</div>
+</div>
+<br><br>

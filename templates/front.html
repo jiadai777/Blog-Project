@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block content %}
+	{% if posts %}
+		{% for p in posts %}
+			{{p.render() | safe}}
+		{% endfor %}
+	{% else %}
+		<h1 class="text-center">No Posts Yet</h1>
+	{% endif %}
+{% endblock %}	
