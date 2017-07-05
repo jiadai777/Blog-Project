@@ -97,15 +97,37 @@ class MainPage(BlogHandler):
 def blog_key(name = 'default'):
 	return db.Key.from_path('blogs', name)
 
+def comment_key(name='default'):
+	return db.Key.from_path('comments', name)
+
 class Post(db.Model):
 	subject = db.StringProperty(required = True)
 	content = db.TextProperty(required = True)
 	created = db.DateTimeProperty(auto_now_add = True)
-	last_modified = db.DateTimeProperty(auto_now_add = True)
+	last_modified = db.DateTimeProperty(auto_now = True)
+	author_id = db.IntegerProperty(required=True)
+	author_name = db.StringProperty(required=True)
 
 	def render(self):
 		self._render_text = self.content.replace('\n', '<br>')
-		return render_str("post.html", p = self)
+		comment_link = ""
+		edit_link = ""
+		delete_link = ""
+		like_link = ""
+		return render_str("post.html", p = self, comment_link = comment_link, edit_link = edit_link, delete_link = delete_link, like_link = like_link)
+
+"""
+class Comment(db.Model):
+	comment = db.TextProperty(required = True)
+	created = db.DateTimeProperty(auto_now_add = True)
+
+	def get(self, post_id):
+		key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+		post = db.get(key)
+
+		post.delete()
+		self.redirect('/blog', permanent=True)
+"""
 
 class User(db.Model):
 	name = db.StringProperty(required = True)
@@ -118,7 +140,7 @@ class User(db.Model):
 
 	@classmethod
 	def by_name(cls, name):
-		u = User.all().filter('name=', name).get()
+		u = User.all().filter('name = ', name).get()
 		return u
 
 	@classmethod
@@ -242,14 +264,19 @@ class PostPage(BlogHandler):
 
 class NewPost(BlogHandler):
 	def get(self):
-		self.render("newpost.html")
+		if self.user:
+			self.render("newpost.html")
+		else:
+			self.redirect('/login')
 
 	def post(self):
 		subject = self.request.get('subject')
 		content = self.request.get('content')
+		author_id = self.user.key().id()
+		author_name = self.user.name
 
 		if subject and content:
-			p = Post(parent = blog_key(), subject = subject, content = content)
+			p = Post(parent = blog_key(), subject = subject, content = content, author_id = author_id, author_name = author_name)
 			p.put()
 			self.redirect('/blog/%s' % str(p.key().id()))
 		else:
@@ -258,11 +285,54 @@ class NewPost(BlogHandler):
 
 class DeletePost(BlogHandler):
 	def get(self, post_id):
-		key = db.Key.from_path('Post', int(post_id), parent=blog_key())
-		post = db.get(key)
+		if user:
+			key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+			post = db.get(key)
 
-		post.delete()
-		self.redirect('/blog', permanent=True)
+			if post.author_name == self.user.name:
+				post.delete()
+				self.redirect('/blog', permanent=True)
+			else:
+				post.render()
+		else:
+			self.redirect('/login')
+
+class Comment(db.Model):
+	ref_Id = db.IntegerProperty()
+	post_id = db.IntegerProperty(required=True)
+	commenter_id = db.IntegerProperty(required=True)
+	commenter_name = db.StringProperty(required=True)
+	comment = db.TextProperty(required=True)
+	created = db.DateTimeProperty(auto_now_add=True)
+	last_modified = db.DateTimeProperty(auto_now=True)
+
+	def render(self):
+		self._render_text = self.content.replace('\n', '<br>')
+		return render_str("post.html", c = self)
+
+class CommentHandler(BlogHandler):
+	def post(self):
+		post_id = int(self.request.get('post_id'))
+		if self.user:
+			author_id = int(self.request.get('author_id'))
+			commenter_id = self.user.key().id()
+			commenter_name = self.user.name
+			comment = self.request.get('comment' + post_id)
+
+			c = Comment(parent=comment_key(), author_id=author_id,
+						commenter_id=commenter_id,
+						commenter_name=commenter_name,
+						post_id=post_id, comment=comment)
+
+			if(author_id and commenter_id):
+				c.put()
+				c.ref_Id = c.key().id()
+				c.put()
+				self.redirect('/blog/%s' % post_id)
+			else:
+				self.redirect('/blog/%s' % post_id)
+		else:
+			return self.redirect('/login')
 
 
 app = webapp2.WSGIApplication([	('/', MainPage),
@@ -270,6 +340,7 @@ app = webapp2.WSGIApplication([	('/', MainPage),
 								('/blog/([0-9]+)', PostPage),
 								('/delete/([0-9]+)', DeletePost),
 								('/blog/newpost', NewPost),
+								('/blog/comment', CommentHandler),
 								('/signup', Register),
 								('/login', Login),
 								('/logout', Logout)

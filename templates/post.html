@@ -1,10 +1,28 @@
-<div class="container">
+<div class="container {{p.author_id}}">
 	<div class="jumbotron">
 		<a href={{ "/blog/" ~ p.key().id() }}><h2 class="subject">{{p.subject}}</h2></a>
 		<span>{{p.created.strftime("%b %d, %Y")}}</span>
+		<span>by <b>{{p.author_name}}</b></span>
 		<hr>
-		<p>{{p.content | safe}}</p>
-		<a href={{ "/delete/" ~ p.key().id() }}>Delete</a>
+		<p>{{p._render_text | safe}}</p>
+		{% if user_id != "" %}
+			{% set comment_link = "Comment" %}
+		{% endif %}
+		{% if user_id == p.author_id %}
+			{% set edit_link = "Edit" %}
+		{% endif %}
+		<a href={{ "/delete/" ~ p.key().id() }}>{{delete_link}}</a>
+		<a href="#">{{edit_link}}</a>
+		<a href="/blog/comment" data-toggle="collapse" data-target={{ "#comment" ~ p.key().id() }}>{{comment_link}}</a>
+		<a href="#">{{like_link}}</a>
+		<div id={{ "comment" ~ p.key().id() }} class="collapse" >
+			<textarea rows="5" class="form-control" name= {{ "comment" ~ p.key().id() }}></textarea>
+			<br>
+			<div class="btn-group">
+				<button class="btn btn-md btn-primary">Submit</button>
+				<button data-toggle="collapse" data-target={{ "#comment" ~ p.key().id() }} class="btn btn-md btn-primary">Cancel</button>
+			</div>
+		</div>
 	</div>
 </div>
 <br><br>
