@@ -2,7 +2,7 @@
 	color: red;
 }
 
-a:link {
+a {
 	text-decoration: none;
 	cursor: pointer;
 }

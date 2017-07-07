@@ -109,24 +109,32 @@ class Post(db.Model):
 	author_name = db.StringProperty(required=True)
 
 	def render(self):
+		comments = Comment.all().filter('parent_post_id = ', self.key().id()).order('-created')
 		self._render_text = self.content.replace('\n', '<br>')
-		comment_link = ""
-		edit_link = ""
-		delete_link = ""
-		like_link = ""
-		return render_str("post.html", p = self, comment_link = comment_link, edit_link = edit_link, delete_link = delete_link, like_link = like_link)
+		return render_str("post.html", p = self, comments = comments)
 
 """
-class Comment(db.Model):
-	comment = db.TextProperty(required = True)
-	created = db.DateTimeProperty(auto_now_add = True)
+post_id = int(self.request.get('post_id'))
+		if self.user:
+			author_id = int(self.request.get('author_id'))
+			commenter_id = self.user.key().id()
+			commenter_name = self.user.name
+			comment = self.request.get('comment' + post_id)
 
-	def get(self, post_id):
-		key = db.Key.from_path('Post', int(post_id), parent=blog_key())
-		post = db.get(key)
+			c = Comment(parent=comment_key(), author_id=author_id,
+						commenter_id=commenter_id,
+						commenter_name=commenter_name,
+						post_id=post_id, comment=comment)
 
-		post.delete()
-		self.redirect('/blog', permanent=True)
+			if(author_id and commenter_id):
+				c.put()
+				c.ref_Id = c.key().id()
+				c.put()
+				self.redirect('/blog/%s' % post_id)
+			else:
+				self.redirect('/blog/%s' % post_id)
+		else:
+			return self.redirect('/login')
 """
 
 class User(db.Model):
@@ -248,7 +256,10 @@ class Logout(BlogHandler):
 class BlogFront(BlogHandler):
 	def get(self):
 		posts = Post.all().order('-created')
-		self.render('front.html', posts = posts)
+		if posts.get() is not None:
+			self.render('front.html', posts = posts)
+		else:
+			self.render('front.html')
 
 
 class PostPage(BlogHandler):
@@ -284,63 +295,104 @@ class NewPost(BlogHandler):
 			self.render("newpost.html", subject=subject, content=content, error=error)
 
 class DeletePost(BlogHandler):
-	def get(self, post_id):
-		if user:
+	def post(self):
+		if self.user:
+			post_id = self.request.get('post_id')
+			author_id = self.request.get('author_id')
 			key = db.Key.from_path('Post', int(post_id), parent=blog_key())
 			post = db.get(key)
 
-			if post.author_name == self.user.name:
+			if(int(author_id) == self.user.key().id()):
+				comments = Comment.all().filter('parent_post_id = ', post.key().id()).order('-created')
+				for c in comments:
+					c.delete()
 				post.delete()
-				self.redirect('/blog', permanent=True)
+				msg = "Your post has been deleted."
+				self.redirect()
 			else:
-				post.render()
+				msg = "You cannot delete other authors' posts!"
+				self.render('permalink.html', main_msg = msg, post = post)
 		else:
 			self.redirect('/login')
 
+class EditPost(BlogHandler):
+	def get(self, post_id):
+		if self.user:
+			key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+			post = db.get(key)
+
+			if self.user.key().id() == post.author_id:
+				subject = post.subject
+				content = post.content
+				self.render('newpost.html', subject = subject, content = content)
+			else:
+				msg = "You cannot delete other authors' posts!"
+				self.render('permalink.html', post = post, main_msg = msg)
+		else:
+			self.redirect('/login')
+
+	def post(self, post_id):
+		key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+		post = db.get(key)
+		new_subject = self.request.get('subject')
+		new_content = self.request.get('content')
+
+		if new_subject and new_content:
+			post.subject = new_subject
+			post.content = new_content
+			post.put()
+			self.redirect('/blog/%s' % post.key().id())
+		else:
+			error = "You must have a subject and content."
+			self.render("newpost.html", subject=new_subject, content=new_content, error=error, p = post)
+
 class Comment(db.Model):
-	ref_Id = db.IntegerProperty()
-	post_id = db.IntegerProperty(required=True)
+	parent_post_id = db.IntegerProperty(required=True)
+	comment_id = db.IntegerProperty(required=True)
 	commenter_id = db.IntegerProperty(required=True)
 	commenter_name = db.StringProperty(required=True)
-	comment = db.TextProperty(required=True)
+	content = db.TextProperty(required=True)
 	created = db.DateTimeProperty(auto_now_add=True)
 	last_modified = db.DateTimeProperty(auto_now=True)
 
 	def render(self):
 		self._render_text = self.content.replace('\n', '<br>')
-		return render_str("post.html", c = self)
+		return render_str("comment.html", c = self)
 
-class CommentHandler(BlogHandler):
-	def post(self):
-		post_id = int(self.request.get('post_id'))
+class MakeComment(BlogHandler):
+	def get(self, post_id):
 		if self.user:
-			author_id = int(self.request.get('author_id'))
-			commenter_id = self.user.key().id()
-			commenter_name = self.user.name
-			comment = self.request.get('comment' + post_id)
-
-			c = Comment(parent=comment_key(), author_id=author_id,
-						commenter_id=commenter_id,
-						commenter_name=commenter_name,
-						post_id=post_id, comment=comment)
-
-			if(author_id and commenter_id):
-				c.put()
-				c.ref_Id = c.key().id()
-				c.put()
-				self.redirect('/blog/%s' % post_id)
-			else:
-				self.redirect('/blog/%s' % post_id)
+			key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+			post = db.get(key)
+			self.render("new-comment.html", post = post)
 		else:
-			return self.redirect('/login')
+			self.redirect('/login')
 
+	def post(self, post_id):
+		content = self.request.get('comment')
+		parent_post_id = int(post_id)
+		commenter_id = self.user.key().id()
+		commenter_name = self.user.name
+
+		key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+		post = db.get(key)
+
+		if content:
+			c = Comment(content = content, parent_post_id = parent_post_id, commenter_id = commenter_id, commenter_name = commenter_name, comment_id = 1)
+			c.put()
+			c.comment_id = c.key().id()
+			self.redirect('/blog/%s' % str(post.key().id()))
+		else:
+			msg = "You must have some content."
+			self.render("new-comment.html", comment_error = msg, post = post)
 
 app = webapp2.WSGIApplication([	('/', MainPage),
 								('/blog/?', BlogFront),
 								('/blog/([0-9]+)', PostPage),
-								('/delete/([0-9]+)', DeletePost),
+								('/blog/delete_post', DeletePost),
 								('/blog/newpost', NewPost),
-								('/blog/comment', CommentHandler),
+								('/blog/edit_post/([0-9]+)', EditPost),
+								('/blog/new_comment/([0-9]+)', MakeComment),
 								('/signup', Register),
 								('/login', Login),
 								('/logout', Logout)

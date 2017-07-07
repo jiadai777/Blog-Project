@@ -1,0 +1,10 @@
+<div class="col-lg-offset-1">
+	<br>
+	<span>{{c.created.strftime("%b %d, %Y")}}</span>
+	<span>by <b>{{c.commenter_name}}</b></span>
+	<p>{{c._render_text | safe}}</p>
+	<a href={{ "/blog/delete_comment/" ~ c.key().id() }}>Delete</a>
+	|
+	<a href="#">Edit</a>
+	<hr>
+</div>

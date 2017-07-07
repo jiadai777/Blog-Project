@@ -5,24 +5,19 @@
 		<span>by <b>{{p.author_name}}</b></span>
 		<hr>
 		<p>{{p._render_text | safe}}</p>
-		{% if user_id != "" %}
-			{% set comment_link = "Comment" %}
-		{% endif %}
-		{% if user_id == p.author_id %}
-			{% set edit_link = "Edit" %}
-		{% endif %}
-		<a href={{ "/delete/" ~ p.key().id() }}>{{delete_link}}</a>
-		<a href="#">{{edit_link}}</a>
-		<a href="/blog/comment" data-toggle="collapse" data-target={{ "#comment" ~ p.key().id() }}>{{comment_link}}</a>
-		<a href="#">{{like_link}}</a>
-		<div id={{ "comment" ~ p.key().id() }} class="collapse" >
-			<textarea rows="5" class="form-control" name= {{ "comment" ~ p.key().id() }}></textarea>
-			<br>
-			<div class="btn-group">
-				<button class="btn btn-md btn-primary">Submit</button>
-				<button data-toggle="collapse" data-target={{ "#comment" ~ p.key().id() }} class="btn btn-md btn-primary">Cancel</button>
-			</div>
+		<div class="btn-group btn-group-md">
+			<form method="post" action="/blog/delete_post" class="d-inline">
+				<input type="hidden" name="post_id" value="{{p.key().id()}}">
+				<input type="hidden" name="author_id" value="{{p.author_id}}">
+				<input type="submit" class="btn btn-default" value="Delete">
+			</form>
+			<a href={{ "/blog/edit_post/" ~ p.key().id() }}>Edit</a>
+			<a href={{ "/blog/new_comment/" ~ p.key().id() }} class="btn btn-default d-inline">Comment</a>
 		</div>
+
+		{% for c in comments %}
+			{{c.render() | safe}}
+		{% endfor %}
 	</div>
 </div>
 <br><br>
