@@ -113,30 +113,6 @@ class Post(db.Model):
 		self._render_text = self.content.replace('\n', '<br>')
 		return render_str("post.html", p = self, comments = comments)
 
-"""
-post_id = int(self.request.get('post_id'))
-		if self.user:
-			author_id = int(self.request.get('author_id'))
-			commenter_id = self.user.key().id()
-			commenter_name = self.user.name
-			comment = self.request.get('comment' + post_id)
-
-			c = Comment(parent=comment_key(), author_id=author_id,
-						commenter_id=commenter_id,
-						commenter_name=commenter_name,
-						post_id=post_id, comment=comment)
-
-			if(author_id and commenter_id):
-				c.put()
-				c.ref_Id = c.key().id()
-				c.put()
-				self.redirect('/blog/%s' % post_id)
-			else:
-				self.redirect('/blog/%s' % post_id)
-		else:
-			return self.redirect('/login')
-"""
-
 class User(db.Model):
 	name = db.StringProperty(required = True)
 	pw_hash = db.StringProperty(required = True)
@@ -295,25 +271,30 @@ class NewPost(BlogHandler):
 			self.render("newpost.html", subject=subject, content=content, error=error)
 
 class DeletePost(BlogHandler):
-	def post(self):
+	def get(self, post_id):
 		if self.user:
-			post_id = self.request.get('post_id')
-			author_id = self.request.get('author_id')
 			key = db.Key.from_path('Post', int(post_id), parent=blog_key())
 			post = db.get(key)
-
-			if(int(author_id) == self.user.key().id()):
-				comments = Comment.all().filter('parent_post_id = ', post.key().id()).order('-created')
-				for c in comments:
-					c.delete()
-				post.delete()
-				msg = "Your post has been deleted."
-				self.redirect()
+			if self.user.key().id() == post.author_id:
+				self.render('delete_post.html', post = post)
 			else:
-				msg = "You cannot delete other authors' posts!"
-				self.render('permalink.html', main_msg = msg, post = post)
+				msg = "You cannot delete other people's posts!"
+				self.render('permalink.html', post = post, main_msg = msg)
 		else:
 			self.redirect('/login')
+
+	def post(self, post_id):
+		key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+		post = db.get(key)
+
+		comments = Comment.all().filter('parent_post_id = ', post.key().id()).order('-created')
+		for c in comments:
+			c.delete()
+
+		post.delete()
+
+		msg = "Your post has been deleted."
+		self.redirect('/blog')
 
 class EditPost(BlogHandler):
 	def get(self, post_id):
@@ -378,21 +359,57 @@ class MakeComment(BlogHandler):
 		post = db.get(key)
 
 		if content:
-			c = Comment(content = content, parent_post_id = parent_post_id, commenter_id = commenter_id, commenter_name = commenter_name, comment_id = 1)
+			c = Comment(content = content,
+						parent_post_id = parent_post_id,
+						commenter_id = commenter_id,
+						commenter_name = commenter_name,
+						comment_id = 1)
 			c.put()
 			c.comment_id = c.key().id()
+			c.put()
 			self.redirect('/blog/%s' % str(post.key().id()))
 		else:
 			msg = "You must have some content."
 			self.render("new-comment.html", comment_error = msg, post = post)
 
+class DeleteComment(BlogHandler):
+	def get(self, comment_id):
+		if self.user:
+			key = db.Key.from_path('Comment', int(comment_id), parent=comment_key())
+			comment = db.get(key)
+			post_id = comment.parent_post_id
+			key = db.Key.from_path('Post', post_id, parent=post_key())
+			post = db.get(key)
+
+			if self.user.key().id() == comment.commenter_id:
+				self.render('delete_comment.html', comment = comment)
+			else:
+				msg = "You cannot delete other people's comments!"
+				self.render('permalink.html', post = post, main_msg = msg)
+		else:
+			self.redirect('/login')
+
+	def post(self, comment_id):
+		key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+		post = db.get(key)
+
+		comments = Comment.all().filter('parent_post_id = ', post.key().id()).order('-created')
+		for c in comments:
+			c.delete()
+
+		post.delete()
+
+		msg = "Your post has been deleted."
+		self.redirect('/blog')
+
 app = webapp2.WSGIApplication([	('/', MainPage),
 								('/blog/?', BlogFront),
 								('/blog/([0-9]+)', PostPage),
-								('/blog/delete_post', DeletePost),
+								('/blog/delete_post/([0-9]+)', DeletePost),
 								('/blog/newpost', NewPost),
 								('/blog/edit_post/([0-9]+)', EditPost),
 								('/blog/new_comment/([0-9]+)', MakeComment),
+								('/blog/delete_comment/([0-9]+)', DeleteComment),
 								('/signup', Register),
 								('/login', Login),
 								('/logout', Logout)
