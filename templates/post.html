@@ -6,12 +6,16 @@
 		<hr>
 		<p>{{p._render_text | safe}}</p>
 		<div class="btn-group btn-group-md">
-	
 			<a href={{ "/blog/edit_post/" ~ p.key().id() }}>Edit</a>
 			|
 			<a href={{ "/blog/delete_post/" ~ p.key().id() }}>Delete</a>
 			|
 			<a href={{ "/blog/new_comment/" ~ p.key().id() }}>Comment</a>
+			<form method="post" action={{ "/blog/like_unlike_post/" ~ p.key().id() }}>
+				<button type="submit" class="btn btn-success">
+		        	<span class="glyphicon glyphicon-thumbs-up"></span> Like {{num_of_likes}}
+		        </button>
+			</form>
 		</div>
 
 		{% for c in comments %}

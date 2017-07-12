@@ -100,6 +100,9 @@ def blog_key(name = 'default'):
 def comment_key(name='default'):
 	return db.Key.from_path('comments', name)
 
+def like_key(name='default'):
+	return db.Key.from_path('likes', name)
+
 class Post(db.Model):
 	subject = db.StringProperty(required = True)
 	content = db.TextProperty(required = True)
@@ -110,8 +113,16 @@ class Post(db.Model):
 
 	def render(self):
 		comments = Comment.all().filter('parent_post_id = ', self.key().id()).order('-created')
+		likes = Like.all().filter('parent_post_id = ', self.key().id())
+		num_of_likes = 0
+		for like in likes:
+			num_of_likes += 1
 		self._render_text = self.content.replace('\n', '<br>')
-		return render_str("post.html", p = self, comments = comments)
+		return render_str("post.html", p = self, comments = comments, likes = likes, num_of_likes = num_of_likes)
+
+class Like(db.Model):
+	parent_post_id = db.IntegerProperty(required = True)
+	liker_id = db.IntegerProperty(required = True)
 
 class User(db.Model):
 	name = db.StringProperty(required = True)
@@ -307,7 +318,7 @@ class EditPost(BlogHandler):
 				content = post.content
 				self.render('newpost.html', subject = subject, content = content)
 			else:
-				msg = "You cannot delete other authors' posts!"
+				msg = "You cannot edit other people's posts!"
 				self.render('permalink.html', post = post, main_msg = msg)
 		else:
 			self.redirect('/login')
@@ -326,6 +337,28 @@ class EditPost(BlogHandler):
 		else:
 			error = "You must have a subject and content."
 			self.render("newpost.html", subject=new_subject, content=new_content, error=error, p = post)
+
+class LikeHandler(BlogHandler):
+	def post(self, post_id):
+
+		if self.user:
+			key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+			post = db.get(key)
+			uid = self.user.key().id()
+
+			if uid == post.author_id:
+				msg = "You cannot like your own post!"
+				self.render('permalink.html', post = post, main_msg = msg)
+			else:
+				like = Like.all().filter('parent_post_id =', int(post_id)).filter('liker_id =', uid)
+				if like:
+					like.delete()
+				else:
+					new_like = Like(parent_post_id = int(post_id), liker_id = uid)
+					new_like.put()
+
+		else:
+			self.redirect('/login')	
 
 class Comment(db.Model):
 	parent_post_id = db.IntegerProperty(required=True)
@@ -359,7 +392,8 @@ class MakeComment(BlogHandler):
 		post = db.get(key)
 
 		if content:
-			c = Comment(content = content,
+			c = Comment(parent = comment_key(),
+						content = content,
 						parent_post_id = parent_post_id,
 						commenter_id = commenter_id,
 						commenter_name = commenter_name,
@@ -378,7 +412,7 @@ class DeleteComment(BlogHandler):
 			key = db.Key.from_path('Comment', int(comment_id), parent=comment_key())
 			comment = db.get(key)
 			post_id = comment.parent_post_id
-			key = db.Key.from_path('Post', post_id, parent=post_key())
+			key = db.Key.from_path('Post', post_id, parent=blog_key())
 			post = db.get(key)
 
 			if self.user.key().id() == comment.commenter_id:
@@ -390,16 +424,11 @@ class DeleteComment(BlogHandler):
 			self.redirect('/login')
 
 	def post(self, comment_id):
-		key = db.Key.from_path('Post', int(post_id), parent=blog_key())
-		post = db.get(key)
+		key = db.Key.from_path('Comment', int(comment_id), parent=comment_key())
+		comment = db.get(key)
 
-		comments = Comment.all().filter('parent_post_id = ', post.key().id()).order('-created')
-		for c in comments:
-			c.delete()
+		comment.delete()
 
-		post.delete()
-
-		msg = "Your post has been deleted."
 		self.redirect('/blog')
 
 app = webapp2.WSGIApplication([	('/', MainPage),
@@ -408,6 +437,7 @@ app = webapp2.WSGIApplication([	('/', MainPage),
 								('/blog/delete_post/([0-9]+)', DeletePost),
 								('/blog/newpost', NewPost),
 								('/blog/edit_post/([0-9]+)', EditPost),
+								('/blog/like_unlike_post/([0-9]+)', LikeHandler),
 								('/blog/new_comment/([0-9]+)', MakeComment),
 								('/blog/delete_comment/([0-9]+)', DeleteComment),
 								('/signup', Register),
