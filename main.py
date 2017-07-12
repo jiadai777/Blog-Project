@@ -350,13 +350,14 @@ class LikeHandler(BlogHandler):
 				msg = "You cannot like your own post!"
 				self.render('permalink.html', post = post, main_msg = msg)
 			else:
-				like = Like.all().filter('parent_post_id =', int(post_id)).filter('liker_id =', uid)
+				like = Like.all(keys_only = True).filter('parent_post_id =', int(post_id)).filter('liker_id =', uid).get()
 				if like:
-					like.delete()
+					db.delete(like)
+					self.redirect('/blog')
 				else:
 					new_like = Like(parent_post_id = int(post_id), liker_id = uid)
 					new_like.put()
-
+					self.redirect('/blog')
 		else:
 			self.redirect('/login')	
 
