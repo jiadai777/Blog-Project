@@ -5,6 +5,6 @@
 	<p>{{c._render_text | safe}}</p>
 	<a href={{ "/blog/delete_comment/" ~ c.key().id() }}>Delete</a>
 	|
-	<a href="#">Edit</a>
+	<a href= {{ "/blog/edit_comment/" ~ c.key().id() }}>Edit</a>
 	<hr>
 </div>

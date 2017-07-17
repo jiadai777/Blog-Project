@@ -13,7 +13,7 @@
 			<a href={{ "/blog/new_comment/" ~ p.key().id() }}>Comment</a>
 			<form method="post" action={{ "/blog/like_unlike_post/" ~ p.key().id() }}>
 				<button type="submit" class="btn btn-success">
-		        	<span class="glyphicon glyphicon-thumbs-up"></span> Like {{num_of_likes}}
+		        	<span class="glyphicon glyphicon-thumbs-up"></span> Like/Unlike {{p.num_of_likes}}
 		        </button>
 			</form>
 		</div>
