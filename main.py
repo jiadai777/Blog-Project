@@ -144,7 +144,10 @@ class Post(db.Model):
         comments = Comment.all().filter('parent_post_id = ',
                                         self.key().id()).order('-created')
         self._render_text = self.content.replace('\n', '<br>')
-        return render_str("post.html", p=self, comments=comments)
+        if comments.get() is not None:
+            return render_str("post.html", p=self, comments=comments)
+        else:
+            return render_str("post.html", p=self)
 
 
 class Like(db.Model):
@@ -456,7 +459,7 @@ class EditComment(BlogHandler):
                                     error=error)
                 else:
                     msg = "You cannot edit other people's comments!"
-                    self.render('permalink.html', main_msg msg)
+                    self.render('permalink.html', main_msg=msg)
         else:
             self.redirect('/login')
 
