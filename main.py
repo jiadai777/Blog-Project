@@ -19,7 +19,7 @@ jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir),
 secret = "monnalisasmile"  # secret word for password hashing
 
 """
-Functions for making a secured and hashed password
+Functions for making a secured and hashed passwords.
 """
 def make_secure_val(val):
     return "%s|%s" % (val, hmac.new(secret, val).hexdigest())
