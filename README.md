@@ -7,4 +7,4 @@
 4. Run this command on Google Cloud SDK: dev_appserver.py app.yaml
 5. Open local host http://localhost:8080/ on your webbrowser.
 6. You will be directed to the welcome page. Click "Cool Blog" to go to the home page of the multiuser blog website.
-7. Have fun!
+7. Have fun.
